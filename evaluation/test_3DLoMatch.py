@@ -1,4 +1,4 @@
-import logging, sys, json, argparse
+import logging, os, sys, json, argparse
 sys.path.insert(0, "..")
 sys.path.insert(0, ".")
 from tqdm import tqdm
@@ -58,7 +58,7 @@ def get_predator_data(pair_idx, n_points):
     return data, gt_trans[None], gt_labels[None]
 
 
-def eval_3DMatch_scene(model, scene_ind, dloader, config, args):
+def eval_3DMatch_scene(model, scene_ind, dloader, config, args, pair_log_fp=None):
     num_pair = dloader.dataset.__len__()
     # 0.success, 1.RE, 2.TE, 3.input inlier number, 4.input inlier ratio,  5. output inlier number 
     # 6. output inlier precision, 7. output inlier recall, 8. output inlier F1 score 9. model_time, 10. data_time 11. scene_ind
@@ -76,7 +76,7 @@ def eval_3DMatch_scene(model, scene_ind, dloader, config, args):
             data_timer.tic()
             if args.descriptor in ['fcgf', 'fpfh']:
                 # using FCGF 5cm to build the initial correspondence
-                corr, src_keypts, tgt_keypts, gt_trans, gt_labels = dloader_iter.next()
+                corr, src_keypts, tgt_keypts, gt_trans, gt_labels = next(dloader_iter)
                 corr, src_keypts, tgt_keypts, gt_trans, gt_labels = \
                     corr.cuda(), src_keypts.cuda(), tgt_keypts.cuda(), gt_trans.cuda(), gt_labels.cuda()
                 gt_labels = gt_labels[:, :, 0]
@@ -127,10 +127,20 @@ def eval_3DMatch_scene(model, scene_ind, dloader, config, args):
 
             final_poses[i] = pred_trans[0].detach().cpu().numpy()
 
+            if pair_log_fp is not None:
+                if hasattr(dloader.dataset, 'get_pair_metadata'):
+                    meta = dloader.dataset.get_pair_metadata(i)
+                else:
+                    meta = {'scene_name': 'unknown', 'ref_id': 'unknown', 'src_id': 'unknown'}
+                pair_log_fp.write(
+                    f"{meta.get('scene_name', 'unknown')}\t{meta.get('ref_id', 'unknown')}\t"
+                    f"{meta.get('src_id', 'unknown')}\t{float(Re):.6f}\t{float(Te):.6f}\n"
+                )
+
     return stats, final_poses
 
 
-def eval_3DMatch(model, config, args):
+def eval_3DMatch(model, config, args, pair_log_path=None):
     dset = ThreeDLOMatchTest(root=config.root,
                             descriptor=config.descriptor if config.descriptor in ["fcgf", "fpfh"] else "fcgf",
                             in_dim=config.in_dim,
@@ -142,12 +152,17 @@ def eval_3DMatch(model, config, args):
                             augment_translation=0.0,
                             )
     dloader = get_dataloader(dset, batch_size=1, num_workers=16, shuffle=False)
-    allpair_stats, allpair_poses = eval_3DMatch_scene(model, 0, dloader, config, args)
+    if pair_log_path is not None:
+        with open(pair_log_path, 'w') as pair_log_fp:
+            pair_log_fp.write('scene_name\tref_id\tsrc_id\tRE\tTE\n')
+            allpair_stats, allpair_poses = eval_3DMatch_scene(model, 0, dloader, config, args, pair_log_fp)
+    else:
+        allpair_stats, allpair_poses = eval_3DMatch_scene(model, 0, dloader, config, args)
     
     # benchmarking using the registration recall defined in 3DMatch to compare with Predator
     # np.save('predator.npy', allpair_poses)
     # benchmark_predator(allpair_poses, gt_folder='/cvlabdata2/home/hjiang/PCRegistration_CVPR2022/OverlapPredator-main/configs/benchmarks/3DLoMatch/')
-    benchmark_predator(allpair_poses, gt_folder='/test/OverlapPredator.Mink/configs/benchmarks/3DLoMatch/')
+    # benchmark_predator(allpair_poses, gt_folder='/test/OverlapPredator.Mink/configs/benchmarks/3DLoMatch/')
     
     # benchmarking using the registration recall defined in DGR 
     allpair_average = allpair_stats.mean(0)
@@ -243,7 +258,9 @@ def run(opts):
     config.n_points_min = 1000
     config.is_cal_upper = False
 
+    os.makedirs('logs', exist_ok=True)
     log_filename = f'logs/3DLoMatch_VBReg--{args.chosen_snapshot}-{args.descriptor}-{opts.num_points}.log'
+    pair_log_filename = log_filename.replace('.log', '_pairs.log')
     config.tag = f'3DLoMatch_{args.chosen_snapshot}-{args.descriptor}-{args.num_points}.log'
     logging.basicConfig(level=logging.INFO, filename=log_filename, filemode='a', format="")
     logging.getLogger().addHandler(logging.StreamHandler(sys.stdout))
@@ -258,7 +275,8 @@ def run(opts):
     config.descriptor = args.descriptor
 
     # evaluate on the test set
-    stats = eval_3DMatch(model.cuda(), config, args)
+    stats = eval_3DMatch(model.cuda(), config, args, pair_log_filename)
+    logging.info(f"Per-sample log saved to {pair_log_filename}")
 
     if args.save_npy:
         save_path = log_filename.replace('.log', '.npy')
@@ -269,5 +287,5 @@ def run(opts):
 
 
 if __name__ == '__main__':
-    run(AttrDict(descriptor="predator", num_points=5000))
+    run(AttrDict(descriptor="fcgf", num_points=5000))
     # run(AttrDict(descriptor="fcgf", num_points=5000))

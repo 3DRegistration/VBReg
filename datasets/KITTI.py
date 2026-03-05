@@ -1,5 +1,6 @@
 import os
 import pdb
+import re
 
 import torch.utils.data as data
 from utils.pointcloud import make_point_cloud, estimate_normal
@@ -148,6 +149,23 @@ class KITTIDataset(data.Dataset):
 
     def __len__(self):
         return len(self.ids_list)
+
+    def get_pair_metadata(self, index):
+        filename = self.ids_list[index]
+        stem = os.path.splitext(os.path.basename(filename))[0]
+        nums = re.findall(r'\d+', stem)
+
+        seq = nums[0] if len(nums) > 0 else "unknown"
+        ref_id = nums[1] if len(nums) > 1 else "unknown"
+        src_id = nums[2] if len(nums) > 2 else "unknown"
+
+        return {
+            'scene_name': seq,
+            'seq': seq,
+            'ref_id': ref_id,
+            'src_id': src_id,
+            'raw_name': stem,
+        }
 
 if __name__ == "__main__":
     dset = KITTIDataset(

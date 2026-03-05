@@ -339,6 +339,18 @@ class ThreeDMatchTest(data.Dataset):
     def __len__(self):
         return self.gt_trans.keys().__len__()
 
+    def get_pair_metadata(self, index):
+        key = list(self.gt_trans.keys())[index]
+        scene = key.split('@')[0]
+        src_id = key.split('@')[1].split('_')[0]
+        tgt_id = key.split('@')[1].split('_')[1]
+        return {
+            'scene_name': scene,
+            'seq': scene,
+            'ref_id': tgt_id,
+            'src_id': src_id,
+        }
+
     def __loadlog__(self, gtpath):
         with open(os.path.join(gtpath, 'gt.log')) as f:
             content = f.readlines()
@@ -386,6 +398,17 @@ class ThreeDLOMatchTest(data.Dataset):
 
     def __len__(self):
         return len(self.infos['rot'])
+
+    def get_pair_metadata(self, item):
+        scene = self.infos['src'][item].split('/')[1]
+        src_id = self.infos['src'][item].split('/')[-1].split('_')[-1].replace('.pth', '')
+        tgt_id = self.infos['tgt'][item].split('/')[-1].split('_')[-1].replace('.pth', '')
+        return {
+            'scene_name': scene,
+            'seq': scene,
+            'ref_id': tgt_id,
+            'src_id': src_id,
+        }
 
     def __getitem__(self, item):
         # get meta data

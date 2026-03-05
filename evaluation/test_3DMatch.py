@@ -1,4 +1,5 @@
 import json
+import os
 import sys
 sys.path.insert(0, "..")
 sys.path.insert(0, ".")
@@ -18,7 +19,7 @@ from utils.timer import Timer
 set_seed()
 
 
-def eval_3DMatch_scene(model, scene, scene_ind, dloader, config, use_icp):
+def eval_3DMatch_scene(model, scene, scene_ind, dloader, config, use_icp, pair_log_fp=None):
     """
     Evaluate our model on 3DMatch testset [scene]
     """
@@ -108,10 +109,20 @@ def eval_3DMatch_scene(model, scene, scene_ind, dloader, config, use_icp):
             stats[i, 10] = data_time
             stats[i, 11] = scene_ind
 
+            if pair_log_fp is not None:
+                if hasattr(dloader.dataset, 'get_pair_metadata'):
+                    meta = dloader.dataset.get_pair_metadata(i)
+                else:
+                    meta = {'scene_name': scene, 'ref_id': 'unknown', 'src_id': 'unknown'}
+                pair_log_fp.write(
+                    f"{meta.get('scene_name', scene)}\t{meta.get('ref_id', 'unknown')}\t"
+                    f"{meta.get('src_id', 'unknown')}\t{float(Re):.6f}\t{float(Te):.6f}\n"
+                )
+
     return stats
 
 
-def eval_3DMatch(model, config, use_icp):
+def eval_3DMatch(model, config, use_icp, pair_log_path=None):
     """
     Collect the evaluation results on each scene of 3DMatch testset, write the result to a .log file.
     """
@@ -126,21 +137,40 @@ def eval_3DMatch(model, config, use_icp):
         'sun3d-mit_lab_hj-lab_hj_tea_nov_2_2012_scan1_erika'
     ]
     all_stats = {}
-    for scene_ind, scene in enumerate(scene_list):
-        dset = ThreeDMatchTest(root=config.root,
-                               descriptor=config.descriptor,
-                               in_dim=config.in_dim,
-                               inlier_threshold=config.inlier_threshold,
-                               num_node='all',
-                               use_mutual=config.use_mutual,
-                               augment_axis=0,
-                               augment_rotation=0.00,
-                               augment_translation=0.0,
-                               select_scene=scene,
-                               )
-        dloader = get_dataloader(dset, batch_size=1, num_workers=16, shuffle=False)
-        scene_stats = eval_3DMatch_scene(model, scene, scene_ind, dloader, config, use_icp)
-        all_stats[scene] = scene_stats
+    if pair_log_path is not None:
+        with open(pair_log_path, 'w') as pair_log_fp:
+            pair_log_fp.write('scene_name\tref_id\tsrc_id\tRE\tTE\n')
+            for scene_ind, scene in enumerate(scene_list):
+                dset = ThreeDMatchTest(root=config.root,
+                                       descriptor=config.descriptor,
+                                       in_dim=config.in_dim,
+                                       inlier_threshold=config.inlier_threshold,
+                                       num_node=5000,
+                                       use_mutual=config.use_mutual,
+                                       augment_axis=0,
+                                       augment_rotation=0.00,
+                                       augment_translation=0.0,
+                                       select_scene=scene,
+                                       )
+                dloader = get_dataloader(dset, batch_size=1, num_workers=16, shuffle=False)
+                scene_stats = eval_3DMatch_scene(model, scene, scene_ind, dloader, config, use_icp, pair_log_fp)
+                all_stats[scene] = scene_stats
+    else:
+        for scene_ind, scene in enumerate(scene_list):
+            dset = ThreeDMatchTest(root=config.root,
+                                   descriptor=config.descriptor,
+                                   in_dim=config.in_dim,
+                                   inlier_threshold=config.inlier_threshold,
+                                   num_node='all',
+                                   use_mutual=config.use_mutual,
+                                   augment_axis=0,
+                                   augment_rotation=0.00,
+                                   augment_translation=0.0,
+                                   select_scene=scene,
+                                   )
+            dloader = get_dataloader(dset, batch_size=1, num_workers=16, shuffle=False)
+            scene_stats = eval_3DMatch_scene(model, scene, scene_ind, dloader, config, use_icp)
+            all_stats[scene] = scene_stats
     logging.info(f"Max memory allicated: {torch.cuda.max_memory_allocated() / 1024 ** 3:.2f}GB")
 
     # result for each scene
@@ -202,7 +232,9 @@ if __name__ == '__main__':
     config.n_points_min = 1000
     # config.descriptor = 'fpfh'
 
+    os.makedirs('logs', exist_ok=True)
     log_filename = f'logs/3DMatch_VBReg--{args.chosen_snapshot}.log'
+    pair_log_filename = log_filename.replace('.log', '_pairs.log')
     config.tag = f'3DMatch_{args.chosen_snapshot}.log'
     logging.basicConfig(level=logging.INFO, filename=log_filename, filemode='a', format="")
     logging.getLogger().addHandler(logging.StreamHandler(sys.stdout))
@@ -216,7 +248,8 @@ if __name__ == '__main__':
     model.eval()
 
     # evaluate on the test set
-    stats = eval_3DMatch(model.cuda(), config, args.use_icp)
+    stats = eval_3DMatch(model.cuda(), config, args.use_icp, pair_log_filename)
+    logging.info(f"Per-sample log saved to {pair_log_filename}")
 
     if args.save_npy:
         save_path = log_filename.replace('.log', '.npy')

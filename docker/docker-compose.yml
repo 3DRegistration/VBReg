@@ -15,15 +15,17 @@ services:
         source: /home/$USER/datasets/PCR
         target: /home/user/Datasets
       - /tmp/.X11-unix:/tmp/.X11-unix
-      - /mnt/wslg:/mnt/wslg
-      - /usr/lib/wsl:/usr/lib/wsl
+      # - /mnt/wslg:/mnt/wslg
+      # - /usr/lib/wsl:/usr/lib/wsl
     environment:
       - DISPLAY=$DISPLAY
       - QT_X11_NO_MITSHM=1
-      - WAYLAND_DISPLAY=$WAYLAND_DISPLAY
-      - PULSE_SERVER=$PULSE_SERVER
-      - XDG_RUNTIME_DIR=$XDG_RUNTIME_DIR
-      - LD_LIBRARY_PATH=/usr/lib/wsl/lib
+      # - WAYLAND_DISPLAY=$WAYLAND_DISPLAY
+      # - PULSE_SERVER=$PULSE_SERVER
+      # - XDG_RUNTIME_DIR=$XDG_RUNTIME_DIR
+      # - LD_LIBRARY_PATH=/usr/lib/wsl/lib
+      - NVIDIA_VISIBLE_DEVICES=all
+      - NVIDIA_DRIVER_CAPABILITIES=all
     # runtime: nvidia
     network_mode: host
     deploy:

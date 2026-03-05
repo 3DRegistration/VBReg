@@ -1,4 +1,5 @@
 import json
+import os
 import sys
 sys.path.insert(0, "..")
 sys.path.insert(0, ".")
@@ -19,7 +20,7 @@ from utils.timer import Timer
 set_seed()
 
 
-def eval_KITTI_per_pair(model, dloader, config, use_icp):
+def eval_KITTI_per_pair(model, dloader, config, use_icp, pair_log_fp=None):
     """
     Evaluate our model on KITTI testset.
     """
@@ -38,7 +39,7 @@ def eval_KITTI_per_pair(model, dloader, config, use_icp):
             # load data 
             #################################
             data_timer.tic()
-            corr, src_keypts, tgt_keypts, gt_trans, gt_labels = dloader_iter.next()
+            corr, src_keypts, tgt_keypts, gt_trans, gt_labels = next(dloader_iter)
             corr, src_keypts, tgt_keypts, gt_trans, gt_labels = \
                     corr.cuda(), src_keypts.cuda(), tgt_keypts.cuda(), gt_trans.cuda(), gt_labels.cuda()
             src_keypts = src_keypts[:, :, :3]
@@ -107,6 +108,16 @@ def eval_KITTI_per_pair(model, dloader, config, use_icp):
             stats[i, 10] = data_time
             stats[i, 11] = -1
 
+            if pair_log_fp is not None:
+                if hasattr(dloader.dataset, 'get_pair_metadata'):
+                    meta = dloader.dataset.get_pair_metadata(i)
+                else:
+                    meta = {'seq': 'unknown', 'ref_id': 'unknown', 'src_id': 'unknown'}
+                pair_log_fp.write(
+                    f"{meta.get('seq', 'unknown')}\t{meta.get('ref_id', 'unknown')}\t"
+                    f"{meta.get('src_id', 'unknown')}\t{float(Re):.6f}\t{float(Te):.6f}\n"
+                )
+
             if recall == 0:
                 from evaluation.benchmark_utils import rot_to_euler
                 R_gt, t_gt = gt_trans[0][:3, :3], gt_trans[0][:3, -1]
@@ -120,13 +131,13 @@ def eval_KITTI_per_pair(model, dloader, config, use_icp):
             torch.cuda.empty_cache()
     return stats
 
-def eval_KITTI(model, config, use_icp):
+def eval_KITTI(model, config, use_icp, pair_log_path=None):
     dset = KITTIDataset(root=config.root,
                     split='test',
                     descriptor=config.descriptor,
                     in_dim=config.in_dim,
                     inlier_threshold=config.inlier_threshold,
-                    num_node=12000,
+                    num_node=5000,
                     use_mutual=config.use_mutual,
                     augment_axis=0, 
                     augment_rotation=0.00, 
@@ -135,7 +146,12 @@ def eval_KITTI(model, config, use_icp):
     dloader = get_dataloader(dset, batch_size=1, num_workers=16, shuffle=False)
     logging.info(config.tag)
 
-    stats = eval_KITTI_per_pair(model, dloader, config, use_icp)
+    if pair_log_path is not None:
+        with open(pair_log_path, 'w') as pair_log_fp:
+            pair_log_fp.write('seq\tref_id\tsrc_id\tRE\tTE\n')
+            stats = eval_KITTI_per_pair(model, dloader, config, use_icp, pair_log_fp)
+    else:
+        stats = eval_KITTI_per_pair(model, dloader, config, use_icp)
     logging.info(f"Max memory allicated: {torch.cuda.max_memory_allocated() / 1024 ** 3:.2f}GB")
 
     # pair level average 
@@ -163,6 +179,8 @@ if __name__ == '__main__':
         log_filename = f'logs/{args.chosen_snapshot}-{args.solver}-ICP.log'
     else:
         log_filename = f'logs/{args.chosen_snapshot}-{args.solver}.log'
+    os.makedirs('logs', exist_ok=True)
+    pair_log_filename = log_filename.replace('.log', '_pairs.log')
 
     logging.basicConfig(level=logging.INFO, 
         filename=log_filename, 
@@ -187,7 +205,8 @@ if __name__ == '__main__':
     model.eval()
 
     # evaluate on the test set
-    stats = eval_KITTI(model.cuda(), config, args.use_icp)
+    stats = eval_KITTI(model.cuda(), config, args.use_icp, pair_log_filename)
+    logging.info(f"Per-sample log saved to {pair_log_filename}")
 
     if args.save_npz:
         save_path = log_filename.replace('.log', '.npy')

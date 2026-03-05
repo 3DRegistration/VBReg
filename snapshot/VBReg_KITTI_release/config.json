@@ -33,7 +33,7 @@
     "scheduler": "ExpLR",
     "scheduler_gamma": 0.99,
     "scheduler_interval": 1,
-    "root": "/test/PCRegistration_CVPR2022/VBReg_CVPR2023_Final2/datasets/kitti/",
+    "root": "/home/user/Datasets/SC2PCR_benchmark/",
     "descriptor": "fcgf",
     "downsample": 0.3,
     "re_thre": 5,
