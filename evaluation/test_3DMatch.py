@@ -37,7 +37,7 @@ def eval_3DMatch_scene(model, scene, scene_ind, dloader, config, use_icp):
             # load data 
             #################################
             data_timer.tic()
-            corr, src_keypts, tgt_keypts, gt_trans, gt_labels = dloader_iter.next()
+            corr, src_keypts, tgt_keypts, gt_trans, gt_labels = next(dloader_iter)
             corr, src_keypts, tgt_keypts, gt_trans, gt_labels = \
                 corr.cuda(), src_keypts.cuda(), tgt_keypts.cuda(), gt_trans.cuda(), gt_labels.cuda()
             src_keypts = src_keypts[:, :, :3]
@@ -197,7 +197,7 @@ if __name__ == '__main__':
     config_path = f'snapshot/{args.chosen_snapshot}/config.json'
     config = json.load(open(config_path, 'r'))
     config = edict(config)
-    config.root = "/opt/data/private/ThreeDMatch/"
+    config.root = "/home/user/Datasets/SC2PCR_benchmark/3DMatch"
     config.is_cal_upper = False
     config.n_points_min = 1000
     # config.descriptor = 'fpfh'

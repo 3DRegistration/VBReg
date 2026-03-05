@@ -1,0 +1,39 @@
+{
+    "name": "VBReg Dev Container",
+    "dockerComposeFile": "../docker/docker-compose.yml", // Updated path
+    "service": "vbreg",
+    "shutdownAction": "stopCompose",
+    "customizations": {
+        "vscode": {
+            "settings": {
+              "terminal.integrated.profiles.linux": {
+                "zsh": {
+                  "path": "/bin/zsh"
+                }
+              },
+              "terminal.integrated.defaultProfile.linux": "zsh"
+            },
+            "extensions": [
+                "ms-python.python",
+                "ms-python.vscode-pylance",
+                "ms-python.autopep8",
+                "ms-azuretools.vscode-docker",
+                "GitHub.copilot",
+                "github.copilot-chat",
+                "oderwat.indent-rainbow",
+                "ms-toolsai.jupyter",
+                "shd101wyy.markdown-preview-enhanced",
+                "donjayamanne.githistory",
+                "gerrnperl.outline-map",
+                "ms-python.debugpy",
+                "eamodio.gitlens",
+                "redjue.git-commit-plugin"
+            ]
+        }
+    },
+    "mounts": [
+      "source=${env:HOME}/.ssh,target=/home/user/.ssh,type=bind,consistency=cached"
+    ],
+    "remoteUser": "user",
+    "workspaceFolder": "/home/user/VBReg"
+}

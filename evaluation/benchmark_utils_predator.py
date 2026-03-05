@@ -191,7 +191,7 @@ def evaluate_registration(num_fragment, result, result_pairs, gt_pairs, gt, gt_i
     """
 
     err2 = err2 ** 2
-    gt_mask = np.zeros((num_fragment, num_fragment), dtype=np.int)
+    gt_mask = np.zeros((num_fragment, num_fragment), dtype=np.int32)
     flags=[]
 
     for idx in range(gt_pairs.shape[0]):

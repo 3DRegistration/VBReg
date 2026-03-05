@@ -1,0 +1,38 @@
+version: '3.8'
+
+services:
+  vbreg:
+    image: eachan10/prelnet:v2
+    shm_size: 64g
+    container_name: vbreg
+    stdin_open: true
+    tty: true
+    volumes:
+      - type: bind
+        source: /home/$USER/my_prjs/pcr/VBReg
+        target: /home/user/VBReg
+      - type: bind
+        source: /home/$USER/datasets/PCR
+        target: /home/user/Datasets
+      - /tmp/.X11-unix:/tmp/.X11-unix
+      - /mnt/wslg:/mnt/wslg
+      - /usr/lib/wsl:/usr/lib/wsl
+    environment:
+      - DISPLAY=$DISPLAY
+      - QT_X11_NO_MITSHM=1
+      - WAYLAND_DISPLAY=$WAYLAND_DISPLAY
+      - PULSE_SERVER=$PULSE_SERVER
+      - XDG_RUNTIME_DIR=$XDG_RUNTIME_DIR
+      - LD_LIBRARY_PATH=/usr/lib/wsl/lib
+    # runtime: nvidia
+    network_mode: host
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              capabilities: [gpu]
+    command: zsh
+
+
+

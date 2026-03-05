@@ -120,7 +120,7 @@ class ThreeDMatchTrainVal(data.Dataset):
         frag2 = tgt_keypts[corr[:, 1]]
         frag1_warp = transform(frag1, gt_trans)
         distance = np.sqrt(np.sum(np.power(frag1_warp - frag2, 2), axis=1))
-        labels = (distance < self.inlier_threshold).astype(np.int)
+        labels = (distance < self.inlier_threshold).astype(np.int32)
         soft_labels = distance * labels.astype(np.float32) + (1. - labels) * 10.
 
         # prepare input to the network
@@ -301,7 +301,7 @@ class ThreeDMatchTest(data.Dataset):
         frag2 = tgt_keypts[corr[:, 1]]
         frag1_warp = transform(frag1, gt_trans)
         distance = np.sqrt(np.sum(np.power(frag1_warp - frag2, 2), axis=1))
-        labels = (distance < self.inlier_threshold).astype(np.int)
+        labels = (distance < self.inlier_threshold).astype(np.int32)
         soft_labels = distance * labels.astype(np.float32) + (1. - labels) * 10.
 
         # prepare input to the network
@@ -443,7 +443,7 @@ class ThreeDLOMatchTest(data.Dataset):
         frag2 = tgt_keypts[corr[:, 1]]
         frag1_warp = transform(frag1, gt_trans)
         distance = np.sqrt(np.sum(np.power(frag1_warp - frag2, 2), axis=1))
-        labels = (distance < self.inlier_threshold).astype(np.int)
+        labels = (distance < self.inlier_threshold).astype(np.int32)
         soft_labels = distance * labels.astype(np.float32) + (1. - labels) * 10.
 
         # prepare input to the network
